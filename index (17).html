@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WMS — Warehouse Inventory Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0d0f14; --surface:#13161e; --surface2:#1a1e29; --surface3:#222636;
+      --border:#2a2f42; --border2:#353c55;
+      --accent:#4f7dff; --success:#2dd4a0; --warning:#f5a623; --danger:#f05a5a;
+      --text:#e8eaf2; --text2:#8b90a7; --text3:#565c78;
+      --mono:'DM Mono',monospace; --sans:'Syne',sans-serif;
+      --za:#4f7dff; --zb:#2dd4a0; --zc:#a78bfa; --zd:#f5a623;
+      --ze:#f472b6; --zf:#38bdf8; --zg:#fb923c;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);}
+
+    .app{display:grid;grid-template-columns:220px 1fr;grid-template-rows:56px 1fr;height:100vh;overflow:hidden;}
+    .topbar{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;z-index:10;}
+    .sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;}
+    .main{overflow-y:auto;padding:24px;background:var(--bg);}
+
+    .logo{font-family:var(--mono);font-weight:500;font-size:13px;color:var(--accent);letter-spacing:.06em;white-space:nowrap;}
+    .logo span{color:var(--text3);}
+    .topbar-title{font-size:15px;font-weight:600;color:var(--text);flex:1;}
+    .online-badge{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);font-family:var(--mono);}
+    .conn-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .conn-dot.live{background:var(--success);box-shadow:0 0 8px var(--success);animation:pulse 2s infinite;}
+    .search-wrap{position:relative;}
+    .search-wrap input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px 7px 34px;font-size:13px;color:var(--text);font-family:var(--sans);width:220px;outline:none;transition:border-color .2s;}
+    .search-wrap input:focus{border-color:var(--accent);}
+    .search-wrap input::placeholder{color:var(--text3);}
+    .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;}
+
+    .sidebar-section{padding:14px 12px 6px;font-size:10px;font-family:var(--mono);letter-spacing:.1em;color:var(--text3);text-transform:uppercase;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;font-size:13px;color:var(--text2);border-radius:8px;margin:1px 8px;transition:all .15s;user-select:none;}
+    .nav-item:hover{background:var(--surface2);color:var(--text);}
+    .nav-item.active{background:var(--surface3);color:var(--text);}
+    .nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .nav-count{margin-left:auto;font-family:var(--mono);font-size:11px;background:var(--surface3);padding:1px 6px;border-radius:99px;color:var(--text3);}
+    .nav-item.active .nav-count{background:var(--accent);color:#fff;}
+    .sidebar-bottom{margin-top:auto;padding:12px;border-top:1px solid var(--border);}
+    .export-btn{width:100%;padding:9px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:12px;font-family:var(--mono);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px;justify-content:center;}
+    .export-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+    .stat-label{font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
+    .stat-val{font-size:28px;font-weight:700;color:var(--text);line-height:1;}
+    .stat-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono);}
+
+    .zone-grid-title{font-size:12px;font-family:var(--mono);color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;}
+    .zone-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:28px;}
+    .zone-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s;}
+    .zone-card:hover{transform:translateY(-2px);}
+    .zcard-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
+    .zcard-name{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;}
+    .zcard-dot{width:9px;height:9px;border-radius:50%;}
+    .zcard-stats{display:flex;gap:14px;padding:0 16px 10px;}
+    .zcs{font-size:11px;font-family:var(--mono);}
+    .zcs-val{font-size:16px;font-weight:600;color:var(--text);display:block;line-height:1.2;}
+    .zcs-lbl{color:var(--text3);font-size:10px;}
+
+    .rack-heatmap{padding:10px 16px 14px;}
+    .heatmap-label{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;}
+    .rack-grid{display:grid;gap:3px;}
+    .rack-cell{height:14px;border-radius:3px;background:var(--surface3);transition:background .2s;position:relative;}
+    .rack-cell.occ{background:#4f7dff55;}
+    .rack-cell.low{background:#f5a62388;}
+    .rack-cell.empty{background:var(--surface3);}
+    .rack-cell:hover .rc-tip{display:block;}
+    .rc-tip{display:none;position:absolute;bottom:18px;left:50%;transform:translateX(-50%);background:var(--surface3);border:1px solid var(--border2);border-radius:5px;padding:3px 7px;font-size:10px;font-family:var(--mono);white-space:nowrap;z-index:5;color:var(--text2);}
+    .heatmap-legend{display:flex;gap:10px;margin-top:6px;font-size:9px;font-family:var(--mono);color:var(--text3);}
+    .hm-leg{display:flex;align-items:center;gap:4px;}
+    .hm-dot{width:8px;height:8px;border-radius:2px;}
+
+    .zone-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+    .zone-title{display:flex;align-items:center;gap:10px;}
+    .zone-badge{font-size:11px;font-family:var(--mono);padding:3px 10px;border-radius:99px;font-weight:500;}
+    .zone-name{font-size:18px;font-weight:600;}
+    .sync-indicator{font-size:10px;font-family:var(--mono);color:var(--text3);display:flex;align-items:center;gap:5px;}
+    .sync-dot{width:5px;height:5px;border-radius:50%;background:var(--success);}
+    .syncing .sync-dot{background:var(--warning);animation:pulse .6s infinite;}
+
+    .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:24px;}
+    .table-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
+    .table-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+    .add-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:opacity .15s;}
+    .add-btn:hover{opacity:.85;}
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    thead th{padding:10px 16px;text-align:left;font-size:10px;font-family:var(--mono);letter-spacing:.08em;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);text-transform:uppercase;font-weight:500;}
+    tbody tr{border-bottom:1px solid var(--border);transition:background .12s;}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:var(--surface2);}
+    tbody td{padding:12px 16px;color:var(--text);vertical-align:middle;}
+    .mono{font-family:var(--mono);font-size:12px;}
+    .bin-tag{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:6px;font-weight:500;}
+    .qty-badge{display:inline-block;font-family:var(--mono);font-size:12px;padding:3px 10px;border-radius:6px;min-width:50px;text-align:center;}
+    .qty-ok{background:#2dd4a018;color:var(--success);}
+    .qty-low{background:#f5a62318;color:var(--warning);}
+    .qty-zero{background:#f05a5a18;color:var(--danger);}
+    .action-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:var(--mono);transition:all .15s;margin-right:4px;}
+    .action-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .action-btn.del:hover{border-color:var(--danger);color:var(--danger);}
+    .empty-row td{text-align:center;padding:40px;color:var(--text3);font-family:var(--mono);font-size:12px;}
+
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:100;align-items:center;justify-content:center;}
+    .modal-overlay.open{display:flex;}
+    .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:28px;width:500px;max-width:95vw;max-height:92vh;overflow-y:auto;}
+    .modal-title{font-size:17px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px;}
+    .modal-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+    .modal-title-row .modal-title{margin-bottom:0;}
+    .btn-item-master{display:flex;align-items:center;gap:6px;padding:6px 13px;background:var(--surface3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:.04em;}
+    .btn-item-master:hover{border-color:var(--success);color:var(--success);}
+    .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .field{display:flex;flex-direction:column;gap:6px;}
+    .field.full{grid-column:1/-1;}
+    .field label{font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase;}
+    .field input,.field select{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:var(--sans);outline:none;transition:border-color .2s;width:100%;}
+    .field input:focus,.field select:focus{border-color:var(--accent);}
+    .field input::placeholder{color:var(--text3);}
+    .field select option{background:var(--surface2);}
+    .auto-hint{font-size:10px;font-family:var(--mono);color:var(--accent);margin-top:2px;}
+    .modal-actions{display:flex;gap:10px;margin-top:24px;justify-content:flex-end;}
+    .btn-cancel{padding:9px 20px;background:none;border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer;font-family:var(--sans);}
+    .btn-save{padding:9px 24px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:opacity .15s;}
+    .btn-save:hover{opacity:.85;}
+
+    .im-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;align-items:center;justify-content:center;}
+    .im-overlay.open{display:flex;}
+    .im-popup{background:var(--surface);border:1px solid var(--border2);border-radius:14px;width:90vw;max-width:900px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;}
+    .im-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
+    .im-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;}
+    .im-close{background:none;border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-size:18px;color:var(--text2);cursor:pointer;line-height:1;transition:all .15s;}
+    .im-close:hover{border-color:var(--danger);color:var(--danger);}
+    .im-search-wrap{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+    .im-search{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--text);font-family:var(--sans);outline:none;transition:border-color .2s;min-width:150px;}
+    .im-search:focus{border-color:var(--accent);}
+    .im-search::placeholder{color:var(--text3);}
+    .im-body{overflow-y:auto;flex:1;}
+    .im-table{width:100%;border-collapse:collapse;font-size:12px;}
+    .im-table thead th{padding:9px 14px;text-align:left;font-size:10px;font-family:var(--mono);letter-spacing:.08em;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);text-transform:uppercase;font-weight:500;white-space:nowrap;position:sticky;top:0;z-index:2;}
+    .im-table tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
+    .im-table tbody tr:last-child{border-bottom:none;}
+    .im-table tbody tr:hover{background:var(--surface2);}
+    .im-table tbody td{padding:10px 14px;color:var(--text);vertical-align:middle;}
+    .im-barcode{font-family:var(--mono);font-size:11px;color:var(--text2);}
+    .im-itemno{font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:600;}
+    .im-uom{font-family:var(--mono);font-size:11px;background:var(--surface3);padding:2px 7px;border-radius:5px;color:var(--text3);display:inline-block;}
+    .im-count{font-size:11px;font-family:var(--mono);color:var(--text3);}
+
+    .toast{position:fixed;bottom:24px;right:24px;background:var(--surface3);border:1px solid var(--border2);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--text);z-index:200;display:flex;align-items:center;gap:10px;transform:translateY(80px);opacity:0;transition:all .3s;box-shadow:0 8px 32px rgba(0,0,0,.4);}
+    .toast.show{transform:translateY(0);opacity:1;}
+
+    .dd-item:hover{background:var(--surface2);}
+    .dd-item{transition:background .1s;padding:8px 12px!important;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;}
+    .dd-item:last-child{border-bottom:none;}
+    .dd-item .highlight{color:var(--accent);font-weight:600;}
+    .dd-item .dd-desc{color:var(--text2);}
+    .dd-item .dd-uom{color:var(--text3);font-size:10px;margin-left:8px;}
+    .dd-loading{padding:12px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:11px;}
+    .dd-empty{padding:12px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:11px;}
+    
+    .hidden{display:none!important;}
+    .view{display:none;}
+    .view.active{display:block;}
+    ::-webkit-scrollbar{width:5px;height:5px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px;}
+    @media(max-width:700px){
+      .app{grid-template-columns:1fr;grid-template-rows:56px auto 1fr;}
+      .sidebar{grid-row:2;flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--border);overflow-x:auto;height:auto;}
+      .stats-grid{grid-template-columns:1fr 1fr;}
+      .zone-cards-grid{grid-template-columns:1fr;}
+      .im-popup{width:98vw;max-height:90vh;}
+    }
+    .refresh-btn{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text2);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;}
+    .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .refresh-btn:disabled{opacity:0.5;cursor:not-allowed;}
+    .loading-indicator{display:inline-block;width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .im-header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .im-pagination{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;color:var(--text2);font-family:var(--mono);border-top:1px solid var(--border);background:var(--surface2);flex-wrap:wrap;justify-content:center;}
+    .im-pagination button{background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;color:var(--text2);cursor:pointer;font-family:var(--mono);font-size:11px;transition:all .15s;}
+    .im-pagination button:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+    .im-pagination button:disabled{opacity:0.4;cursor:not-allowed;}
+    .im-pagination .page-info{color:var(--text3);font-size:11px;padding:0 6px;}
+    .im-status{font-size:11px;color:var(--text3);font-family:var(--mono);}
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="logo">WMS<span>/</span>TRACKER</div>
+    <div class="topbar-title" id="view-label">Dashboard</div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search-input" placeholder="Search bin, carton, product…" oninput="handleSearch()">
+    </div>
+    <div class="online-badge">
+      <div class="conn-dot" id="conn-dot"></div>
+      <span id="conn-label">Connecting…</span>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">Overview</div>
+    <div class="nav-item active" onclick="showView('dashboard')" id="nav-dashboard">
+      <span style="font-size:15px;">▦</span> Dashboard
+    </div>
+    <div class="sidebar-section">Zones</div>
+    <div class="nav-item" onclick="showView('A')" id="nav-A"><span class="nav-dot" style="background:var(--za)"></span>Zone A<span class="nav-count" id="cnt-A">0</span></div>
+    <div class="nav-item" onclick="showView('B')" id="nav-B"><span class="nav-dot" style="background:var(--zb)"></span>Zone B<span class="nav-count" id="cnt-B">0</span></div>
+    <div class="nav-item" onclick="showView('C')" id="nav-C"><span class="nav-dot" style="background:var(--zc)"></span>Zone C<span class="nav-count" id="cnt-C">0</span></div>
+    <div class="nav-item" onclick="showView('D')" id="nav-D"><span class="nav-dot" style="background:var(--zd)"></span>Zone D<span class="nav-count" id="cnt-D">0</span></div>
+    <div class="nav-item" onclick="showView('E')" id="nav-E"><span class="nav-dot" style="background:var(--ze)"></span>Zone E<span class="nav-count" id="cnt-E">0</span></div>
+    <div class="nav-item" onclick="showView('F')" id="nav-F"><span class="nav-dot" style="background:var(--zf)"></span>Zone F<span class="nav-count" id="cnt-F">0</span></div>
+    <div class="nav-item" onclick="showView('G')" id="nav-G"><span class="nav-dot" style="background:var(--zg)"></span>Zone G<span class="nav-count" id="cnt-G">0</span></div>
+    <div class="sidebar-bottom">
+      <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div id="setup-panel" class="hidden"></div>
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Entries</div>
+          <div class="stat-val" id="stat-total">0</div>
+          <div class="stat-sub">across all zones</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Qty</div>
+          <div class="stat-val" id="stat-qty">0</div>
+          <div class="stat-sub">units in stock</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Low Stock</div>
+          <div class="stat-val" style="color:var(--warning)" id="stat-low">0</div>
+          <div class="stat-sub">items ≤ 10 units</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Zones</div>
+          <div class="stat-val" id="stat-zones">0</div>
+          <div class="stat-sub">with inventory</div>
+        </div>
+      </div>
+      <div class="zone-grid-title">Zone Overview — click any card to manage</div>
+      <div class="zone-cards-grid" id="zone-cards-grid"></div>
+    </div>
+
+    <!-- ZONE DETAIL VIEW -->
+    <div class="view" id="view-zone">
+      <div class="zone-header">
+        <div class="zone-title">
+          <span class="zone-badge" id="zone-badge-label"></span>
+          <span class="zone-name" id="zone-name-label"></span>
+        </div>
+        <div class="sync-indicator" id="sync-indicator"><div class="sync-dot"></div><span>Synced</span></div>
+      </div>
+      <div id="zone-table-wrap"></div>
+    </div>
+
+    <!-- SEARCH RESULTS -->
+    <div class="view" id="view-search">
+      <div class="zone-header">
+        <div class="zone-title"><span class="zone-name">Search Results</span></div>
+      </div>
+      <div id="search-table-wrap"></div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title-row">
+      <div class="modal-title">
+        <span id="modal-title-icon">＋</span>
+        <span id="modal-title-text">Add Inventory Entry</span>
+      </div>
+      <button class="btn-item-master" onclick="openItemMaster()">
+        <span>📋</span> Item Master
+      </button>
+    </div>
+    <div style="margin:-6px 0 18px;color:var(--text2);font-size:12px;font-family:var(--mono);">Add multiple products inside the same carton number.</div>
+    <div class="field-grid">
+      <div class="field">
+        <label>Zone</label>
+        <select id="f-zone" onchange="autoGenBin()">
+          <option value="">Select zone</option>
+          <option>A</option><option>B</option><option>C</option>
+          <option>D</option><option>E</option><option>F</option><option>G</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Rack No.</label>
+        <select id="f-rack" onchange="autoGenBin()">
+          <option value="">Select rack</option>
+          <option>R1</option><option>R2</option><option>R3</option><option>R4</option>
+          <option>R5</option><option>R6</option><option>R7</option><option>R8</option>
+          <option>R9</option><option>R10</option><option>R11</option><option>R12</option>
+          <option>R13</option><option>R14</option><option>R15</option><option>R16</option>
+          <option>R17</option><option>R18</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Bin No.</label>
+        <select id="f-level" onchange="autoGenBin()">
+          <option value="">Select bin</option>
+          <option value="1">Bin 1</option><option value="2">Bin 2</option>
+          <option value="3">Bin 3</option><option value="4">Bin 4</option>
+          <option value="5">Bin 5</option><option value="6">Bin 6</option>
+          <option value="7">Bin 7</option><option value="8">Bin 8</option>
+          <option value="9">Bin 9</option><option value="10">Bin 10</option>
+          <option value="11">Bin 11</option><option value="12">Bin 12</option>
+          <option value="13">Bin 13</option><option value="14">Bin 14</option>
+          <option value="15">Bin 15</option><option value="16">Bin 16</option>
+          <option value="17">Bin 17</option><option value="18">Bin 18</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Location Code</label>
+        <input type="text" id="f-bin" placeholder="Auto-generated" readonly style="color:var(--accent);">
+        <span class="auto-hint">⚡ Zone + Rack + Bin</span>
+      </div>
+      <div class="field">
+        <label>Carton No.</label>
+        <div style="display:flex;align-items:center;gap:0;">
+          <span id="f-carton-prefix" style="background:var(--surface3);border:1px solid var(--border2);border-right:none;border-radius:8px 0 0 8px;padding:9px 10px;font-size:13px;color:var(--accent);font-family:var(--mono);white-space:nowrap;">CTN-A-</span>
+          <input type="text" id="f-carton-num" placeholder="0001" maxlength="4"
+            style="border-radius:0 8px 8px 0;width:80px;text-align:center;font-family:var(--mono);font-size:14px;font-weight:600;"
+            oninput="validateCartonNum(this)">
+        </div>
+        <span class="auto-hint" id="carton-hint">⚡ 4 digits required e.g. 0001</span>
+      </div>
+      <div class="field">
+        <label>Lot No.</label>
+        <div style="display:flex;align-items:center;gap:0;">
+          <span id="f-lot-prefix" style="background:var(--surface3);border:1px solid var(--border2);border-right:none;border-radius:8px 0 0 8px;padding:9px 10px;font-size:13px;color:var(--success);font-family:var(--mono);white-space:nowrap;">LOT-A-</span>
+          <input type="text" id="f-lot-num" placeholder="0001" maxlength="4"
+            style="border-radius:0 8px 8px 0;width:80px;text-align:center;font-family:var(--mono);font-size:14px;font-weight:600;"
+            oninput="validateLotNum(this)">
+        </div>
+        <span class="auto-hint" id="lot-hint">⚡ 4 digits required e.g. 0001</span>
+      </div>
+      <div class="field full" style="position:relative;">
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <div style="flex:1;">
+            <label>Item No / Product Search</label>
+            <div style="position:relative;">
+              <input type="text"
+                     id="f-product"
+                     placeholder="Type at least 2 characters…"
+                     autocomplete="off"
+                     oninput="searchItems(this.value)"
+                     onfocus="searchItems(this.value)"
+                     onblur="onProductBlur()">
+              <div id="item-dropdown"
+                   style="display:none;
+                          position:absolute;
+                          top:100%;
+                          left:0;
+                          right:0;
+                          background:var(--surface3);
+                          border:1px solid var(--border2);
+                          border-radius:0 0 8px 8px;
+                          max-height:260px;
+                          overflow-y:auto;
+                          z-index:50;
+                          box-shadow:0 8px 24px rgba(0,0,0,.5);">
+              </div>
+            </div>
+          </div>
+          <div style="width:100px;">
+            <label>Qty</label>
+            <input type="number"
+                   id="f-qty"
+                   placeholder="0"
+                   min="0"
+                   style="text-align:center;font-weight:600;height:42px;">
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <input type="text" id="f-description" placeholder="Auto-filled" readonly style="color:var(--text2);">
+      </div>
+      <div class="field">
+        <label>Unit of Measure</label>
+        <input type="text" id="f-uom" placeholder="Auto-filled" readonly style="color:var(--text2);">
+      </div>
+      <div class="field full">
+        <label>Barcode</label>
+        <input type="text" id="f-barcode" placeholder="Auto-filled" readonly style="color:var(--text2);font-family:var(--mono);">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ITEM MASTER POPUP -->
+<div class="im-overlay" id="im-overlay" onclick="closeItemMaster(event)">
+  <div class="im-popup" onclick="event.stopPropagation()">
+    <div class="im-header">
+      <div class="im-title">
+        <span>📋</span>
+        <span>Item Master</span>
+        <span class="im-count" id="im-count"></span>
+        <span class="im-status" id="im-status"></span>
+      </div>
+      <div class="im-header-actions">
+        <button class="refresh-btn" id="im-refresh-btn" onclick="loadItemMaster(true)">
+          <span>⟳</span> Refresh
+        </button>
+        <button class="im-close" onclick="closeItemMaster()">×</button>
+      </div>
+    </div>
+    <div class="im-search-wrap">
+      <input class="im-search" id="im-search-input" type="text"
+             placeholder="Search by Item No or Description…"
+             oninput="filterItemMaster(this.value)">
+      <span id="im-filter-count" style="font-size:11px;color:var(--text3);font-family:var(--mono);"></span>
+    </div>
+    <div class="im-body" id="im-body">
+      <table class="im-table">
+        <thead>
+          <tr>
+            <th>Barcode</th>
+            <th>Item No</th>
+            <th>Description</th>
+            <th>UOM</th>
+          </tr>
+        </thead>
+        <tbody id="im-tbody"></tbody>
+      </table>
+    </div>
+    <div class="im-pagination" id="im-pagination">
+      <button id="im-prev-btn" onclick="imPrevPage()">◀ Prev</button>
+      <span class="page-info" id="im-page-info">Page 1 / 1</span>
+      <button id="im-next-btn" onclick="imNextPage()">Next ▶</button>
+      <span style="margin-left:12px;font-size:11px;color:var(--text3);">Show: 
+        <select id="im-page-size" onchange="imPageSizeChange()" style="background:var(--surface3);border:1px solid var(--border2);border-radius:4px;color:var(--text2);padding:2px 6px;font-size:11px;">
+          <option value="20">20</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span id="toast-icon">✓</span>
+  <span id="toast-msg">Saved</span>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getDatabase, ref, push, set, remove, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+window._fbSDK = { initializeApp, getDatabase, ref, push, set, remove, onValue };
+window._fbReady = true;
+</script>
+
+<script>
+const FB_CONFIG = {
+  apiKey:      "AIzaSyBuO0vxq7Evoq495UXCA83Sm4yVwN_ERuc",
+  authDomain:  "project-run-be1a4.firebaseapp.com",
+  databaseURL: "https://project-run-be1a4-default-rtdb.firebaseio.com",
+  projectId:   "project-run-be1a4"
+};
+
+// ─── ITEM MASTER STATE ───
+let itemMaster = [];
+let itemMasterLoading = false;
+let filteredItems = [];
+let imCurrentPage = 1;
+let imPageSize = 50;
+const ITEM_MASTER_CACHE_KEY = 'wms_item_master_cache';
+const ITEM_MASTER_URL = 'https://script.google.com/macros/s/AKfycbxwqpe_hx_MYid031YjUtpPYF4UJ0lXe_ddL91L-ZEJTpD5sePArl-K3_Mqts8akG7g/exec';
+
+// ─── SEARCH INDEX ───
+let searchIndex = [];
+let searchIndexReady = false;
+
+// ─── SAFE STRING HELPER ───
+function safeStr(val) {
+  if (val === null || val === undefined) return '';
+  return String(val).trim();
+}
+
+// ─── DATA NORMALIZATION ───
+// CORRECT COLUMN MAPPING:
+// Index 0 = Barcode
+// Index 1 = Item No
+// Index 2 = Description
+// Index 3 = UOM
+function normalizeItemRow(row) {
+  try {
+    if (Array.isArray(row)) {
+      // Store as [Barcode, ItemNo, Description, UOM]
+      return [
+        safeStr(row[0]), // Barcode
+        safeStr(row[1]), // Item No
+        safeStr(row[2]), // Description
+        safeStr(row[3])  // UOM
+      ];
+    } else if (row && typeof row === 'object') {
+      const barcode = safeStr(row.barcode || row.Barcode || row.barCode || row.BarCode || row[0]);
+      const itemNo = safeStr(row.itemNo || row.ItemNo || row.item || row.Item || row[1]);
+      const desc = safeStr(row.description || row.Description || row.desc || row.Desc || row[2]);
+      const uom = safeStr(row.uom || row.UOM || row.unit || row.Unit || row[3]);
+      return [barcode, itemNo, desc, uom];
+    }
+  } catch (e) {
+    console.warn('Error normalizing row:', row, e);
+  }
+  return ['', '', '', ''];
+}
+
+function buildSearchIndex() {
+  if (!itemMaster || itemMaster.length === 0) {
+    searchIndexReady = false;
+    return;
+  }
+  
+  searchIndex = [];
+  
+  for (let i = 0; i < itemMaster.length; i++) {
+    try {
+      const row = itemMaster[i];
+      if (!row) continue;
+      
+      const normalized = normalizeItemRow(row);
+      // [Barcode, ItemNo, Description, UOM]
+      const itemNo = normalized[1];
+      const desc = normalized[2];
+      
+      if (!itemNo && !desc) continue;
+      
+      // ONLY search in Item No and Description - NO BARCODE
+      const combined = (itemNo + ' ' + desc).toLowerCase();
+      searchIndex.push({
+        index: i,
+        itemNo: itemNo.toLowerCase(),
+        desc: desc.toLowerCase(),
+        combined: combined,
+        row: normalized
+      });
+    } catch (e) {
+      console.warn('Error processing row:', row, e);
+    }
+  }
+  
+  searchIndexReady = true;
+  console.log('Search index built with', searchIndex.length, 'items');
+}
+
+// ─── FAST SEARCH ───
+function fastSearch(query) {
+  if (!searchIndexReady || searchIndex.length === 0) {
+    return [];
+  }
+  
+  const q = query.toLowerCase().trim();
+  if (q.length < 2) return [];
+  
+  const results = [];
+  const maxResults = 20;
+  
+  const words = q.split(/\s+/).filter(w => w.length > 0);
+  
+  for (let i = 0; i < searchIndex.length && results.length < maxResults; i++) {
+    const item = searchIndex[i];
+    
+    let allMatch = true;
+    for (const word of words) {
+      if (!item.combined.includes(word)) {
+        allMatch = false;
+        break;
+      }
+    }
+    
+    if (allMatch) {
+      results.push(item.row);
+    }
+  }
+  
+  return results;
+}
+
+// ─── LOAD ITEM MASTER ───
+async function loadItemMaster(forceRefresh = false) {
+  if (itemMasterLoading) return;
+  
+  if (!forceRefresh) {
+    const cached = localStorage.getItem(ITEM_MASTER_CACHE_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          itemMaster = parsed;
+          filteredItems = [...itemMaster];
+          buildSearchIndex();
+          imCurrentPage = 1;
+          renderItemMasterTable();
+          updateItemMasterCount();
+          updateItemMasterStatus('✓ Loaded from cache');
+          return;
+        }
+      } catch (e) {
+        console.warn('Cache parse error:', e);
+      }
+    }
+  }
+
+  itemMasterLoading = true;
+  const refreshBtn = document.getElementById('im-refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<span class="loading-indicator"></span> Loading…';
+  }
+  updateItemMasterStatus('⏳ Loading items…');
+
+  try {
+    let resp;
+    try {
+      resp = await fetch(ITEM_MASTER_URL, {
+        mode: 'cors',
+        headers: { 'Accept': 'application/json' }
+      });
+    } catch (fetchErr) {
+      console.warn('CORS fetch failed:', fetchErr);
+      resp = await fetch(ITEM_MASTER_URL, { mode: 'no-cors' });
+      if (resp.type === 'opaque') {
+        const cached = localStorage.getItem(ITEM_MASTER_CACHE_KEY);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              itemMaster = parsed;
+              filteredItems = [...itemMaster];
+              buildSearchIndex();
+              imCurrentPage = 1;
+              renderItemMasterTable();
+              updateItemMasterCount();
+              updateItemMasterStatus('⚠️ Using cached data (CORS issue)');
+              showToast('Using cached Item Master (CORS issue)', '⚠️', true);
+              return;
+            }
+          } catch (e) {}
+        }
+        throw new Error('CORS issue - cannot fetch from Apps Script.');
+      }
+    }
+    
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    
+    let normalizedData = [];
+    if (Array.isArray(data)) {
+      if (data.length > 0) {
+        const first = data[0];
+        if (Array.isArray(first)) {
+          normalizedData = data.filter(row => Array.isArray(row) && row.length >= 1);
+        } else if (first && typeof first === 'object') {
+          normalizedData = data.map(row => {
+            const barcode = safeStr(row.barcode || row.Barcode || row.barCode || row.BarCode);
+            const itemNo = safeStr(row.itemNo || row.ItemNo || row.item || row.Item);
+            const desc = safeStr(row.description || row.Description || row.desc || row.Desc);
+            const uom = safeStr(row.uom || row.UOM || row.unit || row.Unit);
+            return [barcode, itemNo, desc, uom];
+          }).filter(row => row[1] || row[2]);
+        }
+      }
+    }
+    
+    if (normalizedData.length > 0) {
+      itemMaster = normalizedData;
+      filteredItems = [...itemMaster];
+      buildSearchIndex();
+      localStorage.setItem(ITEM_MASTER_CACHE_KEY, JSON.stringify(itemMaster));
+      imCurrentPage = 1;
+      renderItemMasterTable();
+      updateItemMasterCount();
+      updateItemMasterStatus(`✓ Loaded ${itemMaster.length} items`);
+      showToast(`Item Master loaded (${itemMaster.length} items)`, '✓');
+    } else {
+      throw new Error('No valid data found in response');
+    }
+  } catch (err) {
+    console.error('Item Master load error:', err);
+    updateItemMasterStatus('⚠️ ' + err.message);
+    
+    const cached = localStorage.getItem(ITEM_MASTER_CACHE_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          itemMaster = parsed;
+          filteredItems = [...itemMaster];
+          buildSearchIndex();
+          imCurrentPage = 1;
+          renderItemMasterTable();
+          updateItemMasterCount();
+          updateItemMasterStatus('⚠️ Using cached data (API error)');
+          showToast('Using cached Item Master', '📦');
+          return;
+        }
+      } catch (e) {}
+    }
+    
+    const tbody = document.getElementById('im-tbody');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--danger);">
+        <div style="font-size:20px;margin-bottom:12px;">⚠️</div>
+        <div style="font-weight:600;margin-bottom:8px;">Failed to load Item Master</div>
+        <div style="font-size:12px;color:var(--text3);">${err.message}</div>
+        <button onclick="loadItemMaster(true)" style="margin-top:16px;padding:8px 20px;background:var(--accent);border:none;border-radius:6px;color:#fff;cursor:pointer;font-family:var(--sans);font-size:12px;">Retry</button>
+      </td></tr>`;
+    }
+  } finally {
+    itemMasterLoading = false;
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<span>⟳</span> Refresh';
+    }
+  }
+}
+
+// ─── PAGINATION ───
+function getFilteredItems() {
+  const search = (document.getElementById('im-search-input')?.value || '').toLowerCase().trim();
+  if (!search) return itemMaster;
+  
+  return itemMaster.filter(row => {
+    try {
+      if (!row || !Array.isArray(row)) return false;
+      // [Barcode, ItemNo, Description, UOM] - search only ItemNo and Description
+      const itemNo = safeStr(row[1]).toLowerCase();
+      const desc = safeStr(row[2]).toLowerCase();
+      return itemNo.includes(search) || desc.includes(search);
+    } catch (e) {
+      return false;
+    }
+  });
+}
+
+function renderItemMasterTable() {
+  const tbody = document.getElementById('im-tbody');
+  if (!tbody) return;
+  
+  filteredItems = getFilteredItems();
+  const totalPages = Math.ceil(filteredItems.length / imPageSize) || 1;
+  if (imCurrentPage > totalPages) imCurrentPage = totalPages;
+  if (imCurrentPage < 1) imCurrentPage = 1;
+  
+  const start = (imCurrentPage - 1) * imPageSize;
+  const end = Math.min(start + imPageSize, filteredItems.length);
+  const pageItems = filteredItems.slice(start, end);
+  
+  const filterCount = document.getElementById('im-filter-count');
+  if (filterCount) {
+    filterCount.textContent = filteredItems.length !== itemMaster.length ? 
+      `(${filteredItems.length} of ${itemMaster.length})` : 
+      `(${itemMaster.length})`;
+  }
+  
+  const pageInfo = document.getElementById('im-page-info');
+  if (pageInfo) pageInfo.textContent = `Page ${imCurrentPage} / ${totalPages}`;
+  
+  document.getElementById('im-prev-btn').disabled = imCurrentPage <= 1;
+  document.getElementById('im-next-btn').disabled = imCurrentPage >= totalPages;
+  
+  tbody.innerHTML = '';
+  if (pageItems.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text3);font-family:var(--mono);">No items found</td></tr>`;
+    return;
+  }
+  
+  pageItems.forEach(row => {
+    if (!row || !Array.isArray(row)) return;
+    const tr = document.createElement('tr');
+    // [Barcode, ItemNo, Description, UOM]
+    tr.innerHTML = `
+      <td class="im-barcode">${escHtml(safeStr(row[0]))}</td>
+      <td class="im-itemno">${escHtml(safeStr(row[1]))}</td>
+      <td>${escHtml(safeStr(row[2]))}</td>
+      <td><span class="im-uom">${escHtml(safeStr(row[3]))}</span></td>
+    `;
+    tr.addEventListener('click', () => {
+      selectItem(row);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function imPrevPage() {
+  if (imCurrentPage > 1) { imCurrentPage--; renderItemMasterTable(); }
+}
+
+function imNextPage() {
+  const totalPages = Math.ceil(filteredItems.length / imPageSize) || 1;
+  if (imCurrentPage < totalPages) { imCurrentPage++; renderItemMasterTable(); }
+}
+
+function imPageSizeChange() {
+  imPageSize = parseInt(document.getElementById('im-page-size').value);
+  imCurrentPage = 1;
+  renderItemMasterTable();
+}
+
+function updateItemMasterCount() {
+  const el = document.getElementById('im-count');
+  if (el) el.textContent = `(${itemMaster.length})`;
+}
+
+function updateItemMasterStatus(msg) {
+  const el = document.getElementById('im-status');
+  if (el) el.textContent = msg;
+}
+
+function filterItemMaster(value) {
+  imCurrentPage = 1;
+  renderItemMasterTable();
+}
+
+function selectItem(row) {
+  if (!row || !Array.isArray(row)) return;
+  // [Barcode, ItemNo, Description, UOM]
+  document.getElementById('f-barcode').value = safeStr(row[0]);
+  document.getElementById('f-product').value = safeStr(row[1]);
+  document.getElementById('f-description').value = safeStr(row[2]);
+  document.getElementById('f-uom').value = safeStr(row[3]);
+  closeItemMaster();
+  hideDropdown();
+}
+
+// ─── PRODUCT SEARCH ───
+let searchTimeout = null;
+
+function searchItems(query) {
+  const dropdown = document.getElementById('item-dropdown');
+  
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+    searchTimeout = null;
+  }
+  
+  if (!query || query.length < 2) {
+    dropdown.style.display = 'none';
+    return;
+  }
+  
+  if (!searchIndexReady || searchIndex.length === 0) {
+    dropdown.innerHTML = `<div class="dd-loading">⏳ Building search index…</div>`;
+    dropdown.style.display = 'block';
+    return;
+  }
+  
+  const results = fastSearch(query);
+  
+  if (results.length === 0) {
+    dropdown.innerHTML = `<div class="dd-empty">🔍 No items match "${escHtml(query)}"</div>`;
+    dropdown.style.display = 'block';
+    return;
+  }
+  
+  dropdown.innerHTML = '';
+  results.forEach(row => {
+    if (!row || !Array.isArray(row)) return;
+    const div = document.createElement('div');
+    div.className = 'dd-item';
+    // [Barcode, ItemNo, Description, UOM]
+    const itemNo = escHtml(safeStr(row[1]));
+    const desc = escHtml(safeStr(row[2]));
+    
+    // ONLY show Item No + Description - NO BARCODE
+    div.innerHTML = `
+      <span class="highlight">${itemNo}</span>
+      <span class="dd-desc">${desc}</span>
+    `;
+    div.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      selectItem(row);
+    });
+    dropdown.appendChild(div);
+  });
+  
+  if (results.length === 20) {
+    const info = document.createElement('div');
+    info.className = 'dd-empty';
+    info.style.cssText = 'font-size:10px;color:var(--text3);padding:6px 12px;border-top:1px solid var(--border);';
+    info.textContent = `Showing first 20 matches (refine search for more)`;
+    dropdown.appendChild(info);
+  } else {
+    const info = document.createElement('div');
+    info.className = 'dd-empty';
+    info.style.cssText = 'font-size:10px;color:var(--text3);padding:6px 12px;border-top:1px solid var(--border);';
+    info.textContent = `Found ${results.length} match${results.length > 1 ? 'es' : ''}`;
+    dropdown.appendChild(info);
+  }
+  
+  dropdown.style.display = 'block';
+}
+
+function hideDropdown() {
+  const dropdown = document.getElementById('item-dropdown');
+  if (dropdown) {
+    dropdown.style.display = 'none';
+    dropdown.innerHTML = '';
+  }
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+    searchTimeout = null;
+  }
+}
+
+function onProductBlur() {
+  setTimeout(hideDropdown, 250);
+}
+
+// ─── FIREBASE ───
+let entries = {};
+let currentView = 'dashboard';
+let currentZone = null;
+let editingId = null;
+let fbApp = null, fbDb = null, fbRef = null;
+const LOW_STOCK = 10;
+const ZONES = ['A','B','C','D','E','F','G'];
+const ZONE_COLORS = {A:'#4f7dff',B:'#2dd4a0',C:'#a78bfa',D:'#f5a623',E:'#f472b6',F:'#38bdf8',G:'#fb923c'};
+const ZONE_RACKS  = {A:17, B:18, C:10, D:10, E:8, F:10, G:8};
+
+async function connectFirebase() {
+  try {
+    const { initializeApp, getDatabase, ref, onValue } = window._fbSDK;
+    fbApp = initializeApp(FB_CONFIG, 'wms-app');
+    fbDb  = getDatabase(fbApp);
+    fbRef = ref(fbDb, 'inventory');
+    onValue(fbRef, snap => {
+      entries = snap.val() || {};
+      render();
+    }, err => showToast('Firebase error: ' + err.message, '✗', true));
+    setConnected(true);
+    showToast('Connected to Firebase ✓', '🔗');
+  } catch(e) {
+    setConnected(false);
+    showToast('Connection failed: ' + e.message, '✗', true);
+  }
+}
+
+// ─── CRUD ───
+async function saveEntry() {
+  const zone    = document.getElementById('f-zone').value;
+  const rack    = document.getElementById('f-rack').value;
+  const level   = document.getElementById('f-level').value;
+  const bin     = document.getElementById('f-bin').value;
+  const cartonNum = (document.getElementById('f-carton-num').value||'').replace(/[^0-9]/g,'');
+  if (cartonNum.length !== 4) { showToast('Carton No. must be exactly 4 digits','⚠',true); return; }
+  const carton  = getCartonValue();
+  const lotNum  = (document.getElementById('f-lot-num').value||'').replace(/[^0-9]/g,'');
+  if (lotNum.length !== 4) { showToast('Lot No. must be exactly 4 digits','⚠',true); return; }
+  const lot     = getLotValue();
+  const qty     = parseInt(document.getElementById('f-qty').value) || 0;
+  const product = document.getElementById('f-product').value.trim();
+  const description = document.getElementById('f-description').value.trim();
+  const uom     = document.getElementById('f-uom').value.trim();
+  const barcode = document.getElementById('f-barcode').value.trim();
+  if (!zone || !rack || !level || !product) { showToast('Fill Zone, Rack, Bin & Product','⚠',true); return; }
+  const data = { zone, rack, level, bin, carton, lot, product, description, uom, barcode, qty, ts: Date.now() };
+  setSyncing(true);
+  try {
+    const { ref, push, set } = window._fbSDK;
+    if (editingId) await set(ref(fbDb,'inventory/'+editingId), data);
+    else await push(ref(fbDb,'inventory'), data);
+    setSyncing(false);
+    showToast(editingId ? 'Entry updated ✓' : 'Entry added ✓', '✓');
+  } catch(e) { showToast('Save failed: '+e.message,'✗',true); setSyncing(false); }
+  closeModal();
+}
+
+async function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  setSyncing(true);
+  try {
+    const { ref, remove } = window._fbSDK;
+    await remove(ref(fbDb,'inventory/'+id));
+    setSyncing(false);
+    showToast('Entry deleted','🗑');
+  } catch(e) { showToast('Delete failed','✗',true); setSyncing(false); }
+}
+
+function editEntry(id) {
+  const e = entries[id]; if (!e) return;
+  editingId = id;
+  document.getElementById('modal-title-text').textContent = 'Edit Entry';
+  document.getElementById('f-zone').value        = e.zone  || '';
+  document.getElementById('f-rack').value        = e.rack  || '';
+  document.getElementById('f-level').value       = e.level || '';
+  document.getElementById('f-bin').value         = e.bin   || '';
+  const ctnMatch = (e.carton||'').match(/^(CTN-[A-Z]-)(\d{4})$/);
+  document.getElementById('f-carton-prefix').textContent = ctnMatch ? ctnMatch[1] : 'CTN-'+(e.zone||'A')+'-';
+  document.getElementById('f-carton-num').value          = ctnMatch ? ctnMatch[2] : '';
+  const lotMatch = (e.lot||'').match(/^(LOT-[A-Z]-)(\d{4})$/);
+  document.getElementById('f-lot-prefix').textContent = lotMatch ? lotMatch[1] : 'LOT-'+(e.zone||'A')+'-';
+  document.getElementById('f-lot-num').value          = lotMatch ? lotMatch[2] : '';
+  document.getElementById('f-qty').value         = e.qty  || 0;
+  document.getElementById('f-product').value     = e.product     || '';
+  document.getElementById('f-description').value = e.description || '';
+  document.getElementById('f-uom').value         = e.uom         || '';
+  document.getElementById('f-barcode').value     = e.barcode     || '';
+  document.getElementById('modal').classList.add('open');
+}
+
+function getCartonValue() {
+  const prefix = document.getElementById('f-carton-prefix').textContent || 'CTN-A-';
+  const num = document.getElementById('f-carton-num').value.padStart(4,'0');
+  return prefix + num;
+}
+function getLotValue() {
+  const prefix = document.getElementById('f-lot-prefix').textContent || 'LOT-A-';
+  const num = document.getElementById('f-lot-num').value.padStart(4,'0');
+  return prefix + num;
+}
+
+function validateCartonNum(el) {
+  el.value = el.value.replace(/[^0-9]/g,'').slice(0,4);
+  document.getElementById('carton-hint').textContent = el.value.length === 4 ? '✅ Valid' : '⚡ 4 digits required';
+}
+function validateLotNum(el) {
+  el.value = el.value.replace(/[^0-9]/g,'').slice(0,4);
+  document.getElementById('lot-hint').textContent = el.value.length === 4 ? '✅ Valid' : '⚡ 4 digits required';
+}
+
+function autoGenBin() {
+  const z = document.getElementById('f-zone').value;
+  const r = document.getElementById('f-rack').value;
+  const l = document.getElementById('f-level').value;
+  if (z) {
+    const pfx = document.getElementById('f-carton-prefix');
+    if (pfx) pfx.textContent = 'CTN-'+z+'-';
+    const lotPfx = document.getElementById('f-lot-prefix');
+    if (lotPfx) lotPfx.textContent = 'LOT-'+z+'-';
+    if (!editingId) {
+      const n = Object.values(entries).filter(e=>e.zone===z).length + 1;
+      const numEl = document.getElementById('f-carton-num');
+      if (numEl && !numEl.value) numEl.value = String(n).padStart(4,'0');
+      const lotNumEl = document.getElementById('f-lot-num');
+      if (lotNumEl && !lotNumEl.value) lotNumEl.value = String(n).padStart(4,'0');
+    }
+  }
+  if (z && r && l) {
+    document.getElementById('f-bin').value = z+'-'+r+'-Bin'+l;
+  } else {
+    document.getElementById('f-bin').value = '';
+  }
+}
+
+function openModal(zone) {
+  editingId = null;
+  document.getElementById('modal-title-text').textContent = 'Add Inventory Entry';
+  document.getElementById('f-zone').value    = zone || '';
+  document.getElementById('f-rack').value    = '';
+  document.getElementById('f-level').value   = '';
+  document.getElementById('f-bin').value     = '';
+  const pfx = document.getElementById('f-carton-prefix');
+  if (pfx) pfx.textContent = 'CTN-'+(zone||'A')+'-';
+  const numEl = document.getElementById('f-carton-num');
+  if (numEl) numEl.value = '';
+  const lotPfx = document.getElementById('f-lot-prefix');
+  if (lotPfx) lotPfx.textContent = 'LOT-'+(zone||'A')+'-';
+  const lotNumEl = document.getElementById('f-lot-num');
+  if (lotNumEl) lotNumEl.value = '';
+  document.getElementById('f-qty').value     = '';
+  document.getElementById('f-product').value = '';
+  document.getElementById('f-description').value = '';
+  document.getElementById('f-uom').value     = '';
+  document.getElementById('f-barcode').value = '';
+  hideDropdown();
+  if (zone) autoGenBin();
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); editingId = null; }
+document.getElementById('modal').addEventListener('click', e => { if(e.target===document.getElementById('modal')) closeModal(); });
+
+// ─── VIEWS ───
+function showView(v) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('nav-'+(v==='dashboard'?'dashboard':v)).classList.add('active');
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  if (v === 'dashboard') {
+    currentView='dashboard'; currentZone=null;
+    document.getElementById('view-dashboard').classList.add('active');
+    document.getElementById('view-label').textContent = 'Dashboard';
+    renderDashboard();
+  } else {
+    currentView='zone'; currentZone=v;
+    document.getElementById('view-zone').classList.add('active');
+    document.getElementById('view-label').textContent = 'Zone '+v;
+    renderZoneView(v);
+  }
+}
+
+// ─── RENDER ───
+function render() {
+  updateCounts();
+  updateStats();
+  if (currentView==='dashboard') renderDashboard();
+  else if (currentView==='zone') renderZoneView(currentZone);
+  else if (currentView==='search') handleSearch();
+}
+
+function updateCounts() {
+  ZONES.forEach(z => {
+    document.getElementById('cnt-'+z).textContent = Object.values(entries).filter(e=>e.zone===z).length;
+  });
+}
+
+function updateStats() {
+  const all = Object.values(entries);
+  document.getElementById('stat-total').textContent = all.length;
+  document.getElementById('stat-qty').textContent   = all.reduce((s,e)=>s+(e.qty||0),0).toLocaleString();
+  document.getElementById('stat-low').textContent   = all.filter(e=>(e.qty||0)<=LOW_STOCK&&e.qty>0).length;
+  document.getElementById('stat-zones').textContent = ZONES.filter(z=>all.some(e=>e.zone===z)).length;
+}
+
+// ─── ZONE CARD GRID DASHBOARD ───
+function renderDashboard() {
+  const grid = document.getElementById('zone-cards-grid');
+  grid.innerHTML = '';
+  ZONES.forEach(z => {
+    const color = ZONE_COLORS[z];
+    const zEntries = Object.entries(entries).filter(([,e])=>e.zone===z);
+    const totalQty = zEntries.reduce((s,[,e])=>s+(e.qty||0),0);
+    const lowCount = zEntries.filter(([,e])=>(e.qty||0)<=LOW_STOCK&&e.qty>0).length;
+    const rackCount = ZONE_RACKS[z] || 10;
+
+    const occupied = {};
+    zEntries.forEach(([,e])=>{ occupied[(e.rack||'')+'_'+(e.level||'')] = (e.qty||0); });
+
+    const card = document.createElement('div');
+    card.className = 'zone-card';
+    card.style.borderTop = '3px solid '+color;
+    card.onclick = () => showView(z);
+
+    const head = document.createElement('div');
+    head.className = 'zcard-head';
+    head.innerHTML = `
+      <div class="zcard-name">
+        <span class="zcard-dot" style="background:${color}"></span>
+        Zone ${z}
+      </div>
+      <span style="font-size:11px;font-family:var(--mono);color:var(--text3);">${zEntries.length} entr${zEntries.length===1?'y':'ies'}</span>`;
+
+    const stats = document.createElement('div');
+    stats.className = 'zcard-stats';
+    stats.innerHTML = `
+      <div class="zcs"><span class="zcs-val">${totalQty.toLocaleString()}</span><span class="zcs-lbl">Total Qty</span></div>
+      <div class="zcs"><span class="zcs-val" style="color:${lowCount>0?'var(--warning)':'var(--text)'}">${lowCount}</span><span class="zcs-lbl">Low Stock</span></div>
+      <div class="zcs"><span class="zcs-val">${rackCount}</span><span class="zcs-lbl">Racks</span></div>`;
+
+    const hm = document.createElement('div');
+    hm.className = 'rack-heatmap';
+    const maxRacks = Math.min(rackCount, 18);
+    let hmHtml = `<div class="heatmap-label"><span>Rack heatmap (R1 → R${maxRacks})</span><span>S1·S2·S3</span></div>`;
+    hmHtml += `<div class="rack-grid" style="grid-template-columns:repeat(${maxRacks},1fr);">`;
+    ['S3','S2','S1'].forEach(shelf => {
+      for (let r=1; r<=maxRacks; r++) {
+        const key = 'R'+r+'_'+shelf;
+        const qty = occupied[key];
+        let cls = 'empty';
+        let tip = 'R'+r+' '+shelf+' — Empty';
+        if (qty !== undefined) {
+          cls = qty <= LOW_STOCK ? 'low' : 'occ';
+          const match = zEntries.find(([,e])=>e.rack==='R'+r&&e.level===shelf);
+          tip = 'R'+r+' '+shelf+': '+(match?match[1].product:'')+ ' ('+qty+')';
+        }
+        hmHtml += `<div class="rack-cell ${cls}" title="${escHtml(tip)}"></div>`;
+      }
+    });
+    hmHtml += '</div>';
+    hmHtml += `<div class="heatmap-legend">
+      <div class="hm-leg"><div class="hm-dot" style="background:#4f7dff55"></div>Stocked</div>
+      <div class="hm-leg"><div class="hm-dot" style="background:#f5a62388"></div>Low ≤10</div>
+      <div class="hm-leg"><div class="hm-dot" style="background:var(--surface3)"></div>Empty</div>
+    </div>`;
+    hm.innerHTML = hmHtml;
+
+    card.appendChild(head);
+    card.appendChild(stats);
+    card.appendChild(hm);
+    grid.appendChild(card);
+  });
+}
+
+// ─── ZONE DETAIL TABLE ───
+function renderZoneView(z) {
+  const color = ZONE_COLORS[z];
+  document.getElementById('zone-badge-label').textContent = 'Zone '+z;
+  document.getElementById('zone-badge-label').style.cssText = `background:${color}22;color:${color};border:1px solid ${color}55;`;
+  document.getElementById('zone-name-label').textContent = '';
+
+  const zEntries = Object.entries(entries).filter(([,e])=>e.zone===z);
+  const wrap = document.getElementById('zone-table-wrap');
+  wrap.innerHTML = '';
+  wrap.appendChild(buildTable(z, zEntries));
+}
+
+function buildTable(z, zEntries) {
+  const color = ZONE_COLORS[z];
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap';
+
+  const topbar = document.createElement('div');
+  topbar.className = 'table-topbar';
+  topbar.innerHTML = `
+    <div class="table-title">
+      <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;"></span>
+      Zone ${z} — ${zEntries.length} entr${zEntries.length===1?'y':'ies'}
+      <span style="font-size:11px;font-family:var(--mono);color:var(--text3);font-weight:400;">
+        | ${zEntries.reduce((s,[,e])=>s+(e.qty||0),0).toLocaleString()} units
+      </span>
+    </div>
+    <button class="add-btn" onclick="openModal('${z}')">＋ Add Entry</button>`;
+  wrap.appendChild(topbar);
+
+  const table = document.createElement('table');
+  table.innerHTML = `<thead><tr>
+    <th>Location Code</th><th>Rack No.</th><th>Bin No.</th><th>Carton No.</th><th>Lot No.</th>
+    <th>Item No. / Product</th><th>Description</th>
+    <th>UOM</th><th>Barcode</th><th>Qty</th><th>Updated</th><th>Actions</th>
+  </tr></thead>`;
+  const tbody = document.createElement('tbody');
+
+  const sorted = [...zEntries].sort((a,b)=>(a[1].bin||'').localeCompare(b[1].bin||''));
+
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="12">No entries in Zone ${z} — click "Add Entry" to start</td></tr>`;
+  } else {
+    sorted.forEach(([id,e]) => {
+      const qty = e.qty||0;
+      const qtyClass = qty===0?'qty-zero':qty<=LOW_STOCK?'qty-low':'qty-ok';
+      const date = e.ts ? new Date(e.ts).toLocaleDateString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="bin-tag" style="background:${color}18;color:${color};font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:6px;">${escHtml(e.bin||'—')}</span></td>
+        <td class="mono" style="font-weight:600;">${escHtml(e.rack||'—')}</td>
+        <td class="mono">Bin&nbsp;${escHtml(String(e.level||'—'))}</td>
+        <td class="mono">${escHtml(e.carton||'—')}</td>
+        <td class="mono" style="color:var(--success);">${escHtml(e.lot||'—')}</td>
+        <td class="mono" style="color:var(--accent);font-size:11px;font-weight:600;">${escHtml(e.product||'—')}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(e.description||'')}">${escHtml(e.description||'—')}</td>
+        <td class="mono" style="font-size:11px;">${escHtml(e.uom||'—')}</td>
+        <td class="mono" style="font-size:11px;color:var(--text3);">${escHtml(e.barcode||'—')}</td>
+        <td><span class="qty-badge ${qtyClass}">${qty}</span></td>
+        <td class="mono" style="font-size:11px;color:var(--text3);">${date}</td>
+        <td style="white-space:nowrap;">
+          <button class="action-btn" onclick="editEntry('${id}')">Edit</button>
+          <button class="action-btn del" onclick="deleteEntry('${id}')">Del</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+// ─── SEARCH ───
+function handleSearch() {
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  if (!q) { if(currentView==='search') showView('dashboard'); return; }
+  currentView = 'search';
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-search').classList.add('active');
+  document.getElementById('view-label').textContent = 'Search: '+q;
+  const results = Object.entries(entries).filter(([,e])=>
+    (e.bin||'').toLowerCase().includes(q)||
+    (e.carton||'').toLowerCase().includes(q)||
+    (e.lot||'').toLowerCase().includes(q)||
+    (e.product||'').toLowerCase().includes(q)||
+    (e.zone||'').toLowerCase().includes(q)||
+    (e.rack||'').toLowerCase().includes(q)
+  );
+  const wrap = document.getElementById('search-table-wrap');
+  wrap.innerHTML = '';
+  if (!results.length) {
+    wrap.innerHTML = `<p style="color:var(--text3);font-family:var(--mono);font-size:13px;padding:40px 0;text-align:center;">No results for "${escHtml(q)}"</p>`;
+    return;
+  }
+  const grouped = {};
+  results.forEach(([id,e])=>{ if(!grouped[e.zone]) grouped[e.zone]=[]; grouped[e.zone].push([id,e]); });
+  Object.entries(grouped).sort().forEach(([z,ze])=>{ wrap.appendChild(buildTable(z, ze)); });
+}
+
+// ─── EXPORT ───
+function exportCSV() {
+  const all = Object.values(entries);
+  if (!all.length) { showToast('No data to export','⚠',true); return; }
+  const rows = [['Zone','Rack No.','Bin No.','Location Code','Carton No.','Lot No.','Item No.','Description','UOM','Barcode','Qty','Timestamp']];
+  all.sort((a,b)=>a.zone.localeCompare(b.zone)||(a.bin||'').localeCompare(b.bin||'')).forEach(e=>{
+    rows.push([e.zone,e.rack,'Bin '+(e.level||''),e.bin,e.carton,e.lot||'',e.product,e.description||'',e.uom||'',e.barcode||'',e.qty,e.ts?new Date(e.ts).toISOString():'']);
+  });
+  const csv = rows.map(r=>r.map(c=>'"'+(c||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'warehouse_inventory_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  showToast('CSV exported ✓','⬇');
+}
+
+// ─── UI HELPERS ───
+function setConnected(ok) {
+  const dot = document.getElementById('conn-dot');
+  const lbl = document.getElementById('conn-label');
+  if (ok) { dot.className='conn-dot live'; lbl.textContent='Live Sync'; }
+  else     { dot.className='conn-dot'; lbl.textContent='Offline'; }
+}
+
+function setSyncing(s) {
+  const el = document.getElementById('sync-indicator');
+  el.className = 'sync-indicator'+(s?' syncing':'');
+  el.innerHTML = `<div class="sync-dot"></div><span>${s?'Syncing…':'Synced'}</span>`;
+}
+
+let toastT;
+function showToast(msg,icon='✓',err=false) {
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  document.getElementById('toast-icon').textContent=icon;
+  t.style.borderColor=err?'var(--danger)':'var(--border2)';
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeModal();
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();document.getElementById('search-input').focus();}
+});
+
+// ─── ITEM MASTER POPUP ───
+function openItemMaster() {
+  document.getElementById('im-overlay').classList.add('open');
+  if (itemMaster.length === 0) {
+    loadItemMaster(false);
+  } else {
+    renderItemMasterTable();
+    updateItemMasterCount();
+  }
+}
+
+function closeItemMaster(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('im-overlay').classList.remove('open');
+}
+
+// ─── AUTO-CONNECT ON LOAD ───
+window.addEventListener('load', () => {
+  const cached = localStorage.getItem(ITEM_MASTER_CACHE_KEY);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        itemMaster = parsed;
+        filteredItems = [...itemMaster];
+        buildSearchIndex();
+        renderItemMasterTable();
+        updateItemMasterCount();
+        updateItemMasterStatus('✓ Loaded from cache');
+      }
+    } catch (e) {}
+  }
+  setTimeout(() => loadItemMaster(false), 800);
+  
+  const try_ = (n) => {
+    if (window._fbReady) connectFirebase();
+    else if (n>0) setTimeout(()=>try_(n-1), 300);
+    else showToast('Firebase SDK timeout','⚠',true);
+  };
+  try_(20);
+});
+
+// Expose functions globally
+window.loadItemMaster = loadItemMaster;
+window.filterItemMaster = filterItemMaster;
+window.openItemMaster = openItemMaster;
+window.closeItemMaster = closeItemMaster;
+window.selectItem = selectItem;
+window.searchItems = searchItems;
+window.onProductBlur = onProductBlur;
+window.hideDropdown = hideDropdown;
+window.validateCartonNum = validateCartonNum;
+window.validateLotNum = validateLotNum;
+window.autoGenBin = autoGenBin;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.saveEntry = saveEntry;
+window.editEntry = editEntry;
+window.deleteEntry = deleteEntry;
+window.showView = showView;
+window.exportCSV = exportCSV;
+window.handleSearch = handleSearch;
+window.imPrevPage = imPrevPage;
+window.imNextPage = imNextPage;
+window.imPageSizeChange = imPageSizeChange;
+</script>
+</body>
+</html>
