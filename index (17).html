@@ -201,7 +201,7 @@
     <div class="topbar-title" id="view-label">Dashboard</div>
     <div class="search-wrap">
       <span class="search-icon">⌕</span>
-      <input type="text" id="search-input" placeholder="Search bin, carton, product…" oninput="handleSearch()">
+      <input type="text" id="search-input" placeholder="Search bin, carton, roll, product…" oninput="handleSearch()">
     </div>
     <div class="online-badge">
       <div class="conn-dot" id="conn-dot"></div>
@@ -294,7 +294,7 @@
         <span>📋</span> Item Master
       </button>
     </div>
-    <div style="margin:-6px 0 18px;color:var(--text2);font-size:12px;font-family:var(--mono);">Add multiple products inside the same carton number.</div>
+    <div style="margin:-6px 0 18px;color:var(--text2);font-size:12px;font-family:var(--mono);">Add multiple products inside the same carton / roll number.</div>
     <div class="field-grid">
       <div class="field">
         <label>Zone</label>
@@ -336,7 +336,7 @@
         <span class="auto-hint">⚡ Zone + Rack + Bin</span>
       </div>
       <div class="field">
-        <label>Carton No.</label>
+        <label>Carton No. / Roll No.</label>
         <div style="display:flex;align-items:center;gap:0;">
           <span id="f-carton-prefix" style="background:var(--surface3);border:1px solid var(--border2);border-right:none;border-radius:8px 0 0 8px;padding:9px 10px;font-size:13px;color:var(--accent);font-family:var(--mono);white-space:nowrap;">CTN-A-</span>
           <input type="text" id="f-carton-num" placeholder="0001" maxlength="4"
@@ -973,7 +973,7 @@ async function saveEntry() {
   const level   = document.getElementById('f-level').value;
   const bin     = document.getElementById('f-bin').value;
   const cartonNum = (document.getElementById('f-carton-num').value||'').replace(/[^0-9]/g,'');
-  if (cartonNum.length !== 4) { showToast('Carton No. must be exactly 4 digits','⚠',true); return; }
+  if (cartonNum.length !== 4) { showToast('Carton No. / Roll No. must be exactly 4 digits','⚠',true); return; }
   const carton  = getCartonValue();
   const lotNum  = (document.getElementById('f-lot-num').value||'').replace(/[^0-9]/g,'');
   if (lotNum.length !== 4) { showToast('Lot No. must be exactly 4 digits','⚠',true); return; }
@@ -1243,7 +1243,7 @@ function buildTable(z, zEntries) {
 
   const table = document.createElement('table');
   table.innerHTML = `<thead><tr>
-    <th>Location Code</th><th>Rack No.</th><th>Bin No.</th><th>Carton No.</th><th>Lot No.</th>
+    <th>Location Code</th><th>Rack No.</th><th>Bin No.</th><th>Carton No. / Roll No.</th><th>Lot No.</th>
     <th>Item No. / Product</th><th>Description</th>
     <th>UOM</th><th>Barcode</th><th>Qty</th><th>Updated</th><th>Actions</th>
   </tr></thead>`;
@@ -1314,7 +1314,7 @@ function handleSearch() {
 function exportCSV() {
   const all = Object.values(entries);
   if (!all.length) { showToast('No data to export','⚠',true); return; }
-  const rows = [['Zone','Rack No.','Bin No.','Location Code','Carton No.','Lot No.','Item No.','Description','UOM','Barcode','Qty','Timestamp']];
+  const rows = [['Zone','Rack No.','Bin No.','Location Code','Carton No. / Roll No.','Lot No.','Item No.','Description','UOM','Barcode','Qty','Timestamp']];
   all.sort((a,b)=>a.zone.localeCompare(b.zone)||(a.bin||'').localeCompare(b.bin||'')).forEach(e=>{
     rows.push([e.zone,e.rack,'Bin '+(e.level||''),e.bin,e.carton,e.lot||'',e.product,e.description||'',e.uom||'',e.barcode||'',e.qty,e.ts?new Date(e.ts).toISOString():'']);
   });
